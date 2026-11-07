@@ -16,7 +16,7 @@ A fast, native macOS app for browsing, grouping and finding the screenshots and 
 ![macOS 14+](https://img.shields.io/badge/macOS-14%2B-black?style=flat-square&logo=apple)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue?style=flat-square)](LICENSE)
 
-[**Download**](https://github.com/eiskrenkov/shot/releases/latest) · [Website](https://iskrenkov.com/shot/) · [Report a bug](https://github.com/eiskrenkov/shot/issues/new?template=bug_report.yml)
+[**Download**](https://github.com/eiskrenkov/shot/releases/latest) · [Website](https://eiskrenkov.github.io/shot/) · [Report a bug](https://github.com/eiskrenkov/shot/issues/new?template=bug_report.yml)
 
 </div>
 
