@@ -1,0 +1,222 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to release, without the leading v (e.g. 1.2.0)"
+        required: true
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+env:
+  APP_NAME: Shot
+
+jobs:
+  release:
+    name: Build, sign and publish
+    runs-on: macos-26
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Determine version
+        id: version
+        run: |
+          if [ "${GITHUB_EVENT_NAME}" = "workflow_dispatch" ]; then
+            VERSION="${{ inputs.version }}"
+          else
+            VERSION="${GITHUB_REF_NAME#v}"
+          fi
+          VERSION="${VERSION#v}"
+          if ! [[ "$VERSION" =~ ^[0-9]+(\.[0-9]+){1,2}([-.][0-9A-Za-z.]+)?$ ]]; then
+            echo "::error::'$VERSION' is not a valid version (expected e.g. 1.2.0)"
+            exit 1
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "tag=v$VERSION" >> "$GITHUB_OUTPUT"
+          echo "build=${GITHUB_RUN_NUMBER}" >> "$GITHUB_OUTPUT"
+          echo "Releasing $APP_NAME $VERSION (build $GITHUB_RUN_NUMBER)"
+
+      - name: Check signing secrets
+        id: secrets
+        env:
+          P12: ${{ secrets.MACOS_CERTIFICATE_P12 }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+        run: |
+          if [ -n "$P12" ]; then echo "sign=true" >> "$GITHUB_OUTPUT"; else
+            echo "sign=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::MACOS_CERTIFICATE_P12 is not set. The app will be ad-hoc signed and Gatekeeper will warn users."
+          fi
+          if [ -n "$P12" ] && [ -n "$APPLE_ID" ]; then echo "notarize=true" >> "$GITHUB_OUTPUT"; else
+            echo "notarize=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::Notarization secrets are not set. The DMG will not be notarized."
+          fi
+
+      - name: Import Developer ID certificate
+        if: steps.secrets.outputs.sign == 'true'
+        id: keychain
+        env:
+          P12: ${{ secrets.MACOS_CERTIFICATE_P12 }}
+          P12_PASSWORD: ${{ secrets.MACOS_CERTIFICATE_PASSWORD }}
+        run: |
+          KEYCHAIN="$RUNNER_TEMP/signing.keychain-db"
+          KEYCHAIN_PASSWORD="$(openssl rand -base64 32)"
+          echo "$P12" | base64 --decode > "$RUNNER_TEMP/certificate.p12"
+
+          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
+          security import "$RUNNER_TEMP/certificate.p12" -k "$KEYCHAIN" -P "$P12_PASSWORD" \
+            -T /usr/bin/codesign -T /usr/bin/security
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN" > /dev/null
+          security list-keychains -d user -s "$KEYCHAIN" $(security list-keychains -d user | tr -d '"')
+          rm "$RUNNER_TEMP/certificate.p12"
+
+          IDENTITY="$(security find-identity -v -p codesigning "$KEYCHAIN" | grep 'Developer ID Application' | head -1 | awk '{print $2}')"
+          if [ -z "$IDENTITY" ]; then
+            echo "::error::No 'Developer ID Application' identity found in the certificate."
+            exit 1
+          fi
+          echo "keychain=$KEYCHAIN" >> "$GITHUB_OUTPUT"
+          echo "identity=$IDENTITY" >> "$GITHUB_OUTPUT"
+
+      - name: Build
+        run: |
+          xcodebuild -version
+          xcodebuild archive \
+            -project Shot.xcodeproj \
+            -scheme Shot \
+            -configuration Release \
+            -destination 'generic/platform=macOS' \
+            -archivePath "$RUNNER_TEMP/$APP_NAME.xcarchive" \
+            MARKETING_VERSION="${{ steps.version.outputs.version }}" \
+            CURRENT_PROJECT_VERSION="${{ steps.version.outputs.build }}" \
+            CODE_SIGN_IDENTITY=- \
+            > "$RUNNER_TEMP/xcodebuild.log" 2>&1 || { tail -100 "$RUNNER_TEMP/xcodebuild.log"; exit 1; }
+          grep -E '(error|warning):|ARCHIVE SUCCEEDED' "$RUNNER_TEMP/xcodebuild.log" || true
+
+          mkdir -p dist
+          ditto "$RUNNER_TEMP/$APP_NAME.xcarchive/Products/Applications/$APP_NAME.app" "dist/$APP_NAME.app"
+          lipo -info "dist/$APP_NAME.app/Contents/MacOS/$APP_NAME"
+
+      - name: Sign app
+        env:
+          IDENTITY: ${{ steps.keychain.outputs.identity }}
+          KEYCHAIN: ${{ steps.keychain.outputs.keychain }}
+        run: |
+          if [ "${{ steps.secrets.outputs.sign }}" = "true" ]; then
+            codesign --force --options runtime --timestamp \
+              --sign "$IDENTITY" --keychain "$KEYCHAIN" "dist/$APP_NAME.app"
+          else
+            codesign --force --sign - "dist/$APP_NAME.app"
+          fi
+          codesign --verify --deep --strict --verbose=2 "dist/$APP_NAME.app"
+          codesign --display --verbose=2 "dist/$APP_NAME.app" 2>&1 | grep -E 'Authority|TeamIdentifier|Signature' || true
+
+      - name: Create DMG
+        id: dmg
+        env:
+          IDENTITY: ${{ steps.keychain.outputs.identity }}
+          KEYCHAIN: ${{ steps.keychain.outputs.keychain }}
+        run: |
+          DMG="dist/$APP_NAME-${{ steps.version.outputs.version }}.dmg"
+          STAGING="$RUNNER_TEMP/dmg"
+          mkdir -p "$STAGING"
+          ditto "dist/$APP_NAME.app" "$STAGING/$APP_NAME.app"
+          ln -s /Applications "$STAGING/Applications"
+
+          cp "dist/$APP_NAME.app/Contents/Resources/AppIcon.icns" "$STAGING/.VolumeIcon.icns"
+
+          # Build a writable image first so the volume can be given the app's icon.
+          RW="$RUNNER_TEMP/rw.dmg"
+          hdiutil create -volname "$APP_NAME" -srcfolder "$STAGING" -fs HFS+ -format UDRW -ov "$RW"
+          MOUNT="$(hdiutil attach -readwrite -noverify -noautoopen "$RW" | awk -F'\t' '/\/Volumes\//{print $NF}')"
+          SetFile -a C "$MOUNT"
+          sync
+          hdiutil detach "$MOUNT" || { sleep 3; hdiutil detach -force "$MOUNT"; }
+          hdiutil convert "$RW" -format UDZO -imagekey zlib-level=9 -ov -o "$DMG"
+
+          if [ "${{ steps.secrets.outputs.sign }}" = "true" ]; then
+            codesign --force --timestamp --sign "$IDENTITY" --keychain "$KEYCHAIN" "$DMG"
+          fi
+          echo "path=$DMG" >> "$GITHUB_OUTPUT"
+
+      - name: Notarize DMG
+        if: steps.secrets.outputs.notarize == 'true'
+        env:
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+        run: |
+          DMG="${{ steps.dmg.outputs.path }}"
+          xcrun notarytool submit "$DMG" \
+            --apple-id "$APPLE_ID" --team-id "$APPLE_TEAM_ID" --password "$APPLE_APP_SPECIFIC_PASSWORD" \
+            --wait --timeout 30m --output-format json | tee "$RUNNER_TEMP/notary.json"
+          STATUS="$(plutil -extract status raw "$RUNNER_TEMP/notary.json")"
+          if [ "$STATUS" != "Accepted" ]; then
+            ID="$(plutil -extract id raw "$RUNNER_TEMP/notary.json")"
+            xcrun notarytool log "$ID" \
+              --apple-id "$APPLE_ID" --team-id "$APPLE_TEAM_ID" --password "$APPLE_APP_SPECIFIC_PASSWORD"
+            echo "::error::Notarization failed with status: $STATUS"
+            exit 1
+          fi
+          xcrun stapler staple "$DMG"
+          xcrun stapler validate "$DMG"
+          spctl --assess --type open --context context:primary-signature --verbose "$DMG"
+
+      - name: Checksum
+        run: |
+          cd dist
+          shasum -a 256 "$(basename "${{ steps.dmg.outputs.path }}")" | tee "$(basename "${{ steps.dmg.outputs.path }}").sha256"
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.APP_NAME }}-${{ steps.version.outputs.version }}
+          path: |
+            dist/*.dmg
+            dist/*.sha256
+
+      - name: Publish GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.version.outputs.tag }}
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          NOTES="$RUNNER_TEMP/notes.md"
+          {
+            echo "## Install"
+            echo
+            echo "Download **$APP_NAME-$VERSION.dmg**, open it and drag $APP_NAME to Applications. Requires macOS 14 or later."
+            if [ "${{ steps.secrets.outputs.notarize }}" != "true" ]; then
+              echo
+              echo "> [!NOTE]"
+              echo "> This build is not notarized. On first launch, right-click $APP_NAME in Applications and choose **Open**."
+            fi
+          } > "$NOTES"
+
+          PRERELEASE=""
+          [[ "$VERSION" == *-* ]] && PRERELEASE="--prerelease"
+
+          if gh release view "$TAG" > /dev/null 2>&1; then
+            gh release upload "$TAG" dist/*.dmg dist/*.sha256 --clobber
+          else
+            gh release create "$TAG" dist/*.dmg dist/*.sha256 \
+              --title "$APP_NAME $VERSION" \
+              --notes-file "$NOTES" \
+              --generate-notes \
+              --target "$GITHUB_SHA" \
+              $PRERELEASE
+          fi
+
+      - name: Clean up keychain
+        if: always() && steps.keychain.outputs.keychain != ''
+        run: security delete-keychain "${{ steps.keychain.outputs.keychain }}" || true

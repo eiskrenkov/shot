@@ -1,0 +1,357 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Shot — Your screenshots, beautifully organized</title>
+  <meta name="description" content="Shot is a fast, native macOS app for browsing, grouping and finding your screenshots and screen recordings. Free and open source.">
+  <meta name="theme-color" content="#5b6cff">
+  <link rel="icon" type="image/png" href="assets/favicon.png">
+  <link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="Shot — Your screenshots, beautifully organized">
+  <meta property="og:description" content="A fast, native macOS app for browsing, grouping and finding your screenshots and screen recordings.">
+  <meta property="og:url" content="https://iskrenkov.com/shot/">
+  <meta property="og:image" content="https://iskrenkov.com/shot/assets/og-image.png">
+  <meta name="twitter:card" content="summary_large_image">
+  <script>document.documentElement.classList.add("js")</script>
+  <style>
+    :root {
+      --bg: #fbfbfd;
+      --bg-alt: #f2f3f7;
+      --surface: #ffffff;
+      --text: #1d1d1f;
+      --muted: #6e6e73;
+      --line: rgba(0, 0, 0, 0.08);
+      --accent: #5b6cff;
+      --accent-2: #7b3cf0;
+      --glow: rgba(91, 108, 255, 0.28);
+      --kbd-bg: #ffffff;
+      --kbd-line: rgba(0, 0, 0, 0.14);
+      --shadow: 0 1px 2px rgba(0, 0, 0, .04), 0 12px 40px rgba(20, 20, 60, .08);
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #0b0b0f;
+        --bg-alt: #111117;
+        --surface: #16161d;
+        --text: #f5f5f7;
+        --muted: #a1a1aa;
+        --line: rgba(255, 255, 255, 0.09);
+        --accent: #7c8aff;
+        --accent-2: #a777ff;
+        --glow: rgba(124, 138, 255, 0.25);
+        --kbd-bg: #22222b;
+        --kbd-line: rgba(255, 255, 255, 0.14);
+        --shadow: 0 1px 2px rgba(0, 0, 0, .4), 0 12px 40px rgba(0, 0, 0, .35);
+      }
+    }
+
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Inter", "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+      font-size: 17px;
+      line-height: 1.5;
+      -webkit-font-smoothing: antialiased;
+      overflow-x: hidden;
+    }
+    img { max-width: 100%; height: auto; display: block; }
+    a { color: inherit; text-decoration: none; }
+    .wrap { width: min(1120px, 100% - 32px); margin-inline: auto; }
+
+    /* Nav */
+    nav {
+      position: sticky; top: 0; z-index: 10;
+      backdrop-filter: saturate(180%) blur(20px);
+      -webkit-backdrop-filter: saturate(180%) blur(20px);
+      background: color-mix(in srgb, var(--bg) 72%, transparent);
+      border-bottom: 1px solid var(--line);
+    }
+    nav .wrap { display: flex; align-items: center; justify-content: space-between; height: 56px; }
+    .brand { display: flex; align-items: center; gap: 10px; font-weight: 650; font-size: 18px; letter-spacing: -.01em; }
+    .brand img { width: 28px; height: 28px; }
+    .links { display: flex; align-items: center; gap: 28px; font-size: 14px; color: var(--muted); }
+    .links a:hover { color: var(--text); }
+    .links .btn { color: #fff; }
+    @media (max-width: 640px) { .links .hide-sm { display: none; } }
+
+    /* Buttons */
+    .btn {
+      display: inline-flex; align-items: center; gap: 8px;
+      padding: 12px 22px; border-radius: 980px;
+      font-weight: 600; font-size: 16px; white-space: nowrap;
+      transition: transform .15s ease, box-shadow .15s ease, background .15s ease;
+    }
+    .btn svg { width: 18px; height: 18px; flex: none; }
+    .btn-primary {
+      color: #fff;
+      background: linear-gradient(135deg, #4f8fff, #6b2be0);
+      box-shadow: 0 6px 20px -6px rgba(91, 80, 240, .6);
+    }
+    .btn-primary:hover { transform: translateY(-1px); box-shadow: 0 10px 28px -6px rgba(91, 80, 240, .7); }
+    .btn-secondary { background: var(--surface); border: 1px solid var(--line); box-shadow: var(--shadow); }
+    .btn-secondary:hover { transform: translateY(-1px); }
+    .btn-sm { padding: 7px 14px; font-size: 14px; }
+
+    /* Hero */
+    .hero { text-align: center; padding: 88px 0 0; position: relative; }
+    .hero-icon { width: 152px; height: 152px; margin: 0 auto 28px; filter: drop-shadow(0 18px 30px rgba(70, 60, 200, .28)); }
+    h1 {
+      font-size: clamp(38px, 7.4vw, 84px);
+      line-height: 1.02; letter-spacing: -.035em; font-weight: 750;
+      margin: 0 0 22px;
+    }
+    .grad {
+      background: linear-gradient(100deg, #4f8fff 10%, #7b3cf0 60%, #c04cf5);
+      -webkit-background-clip: text; background-clip: text; color: transparent;
+    }
+    .lede { font-size: clamp(18px, 2.2vw, 22px); color: var(--muted); max-width: 640px; margin: 0 auto 34px; }
+    .ctas { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
+    .fine { margin-top: 16px; font-size: 14px; color: var(--muted); }
+
+    .hero-shot { position: relative; margin: 64px auto 0; max-width: 1060px; }
+    .hero-shot::before {
+      content: ""; position: absolute; inset: 12% 8% 0; z-index: -1;
+      background: radial-gradient(closest-side, var(--glow), transparent);
+      filter: blur(40px);
+    }
+
+    /* Sections */
+    section { padding: 112px 0; }
+    .eyebrow { font-size: 14px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: var(--accent); margin-bottom: 12px; }
+    h2 { font-size: clamp(32px, 4.6vw, 52px); line-height: 1.06; letter-spacing: -.03em; font-weight: 700; margin: 0 0 18px; }
+    .section-head { text-align: center; max-width: 720px; margin: 0 auto 56px; }
+    .section-head p { color: var(--muted); font-size: 19px; margin: 0; }
+
+    .features { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; }
+    @media (max-width: 900px) { .features { grid-template-columns: repeat(2, 1fr); } }
+    @media (max-width: 600px) { .features { grid-template-columns: 1fr; } }
+    .feature {
+      background: var(--surface); border: 1px solid var(--line); border-radius: 22px;
+      padding: 28px; box-shadow: var(--shadow);
+    }
+    .feature .ic {
+      width: 44px; height: 44px; border-radius: 12px; display: grid; place-items: center; margin-bottom: 18px;
+      background: linear-gradient(135deg, color-mix(in srgb, var(--c) 22%, transparent), color-mix(in srgb, var(--c) 10%, transparent));
+      color: var(--c);
+    }
+    .feature .ic svg { width: 24px; height: 24px; }
+    .feature h3 { font-size: 19px; margin: 0 0 6px; letter-spacing: -.01em; }
+    .feature p { margin: 0; color: var(--muted); font-size: 15.5px; }
+
+    .alt { background: var(--bg-alt); }
+    .split { display: grid; grid-template-columns: 5fr 7fr; gap: 56px; align-items: center; }
+    .split + .split { margin-top: 112px; }
+    .split.rev { grid-template-columns: 7fr 5fr; }
+    .split.rev .copy { order: 2; }
+    @media (max-width: 860px) {
+      .split, .split.rev { grid-template-columns: 1fr; gap: 28px; }
+      .split.rev .copy { order: 0; }
+    }
+    .copy p { color: var(--muted); font-size: 18px; margin: 0 0 14px; }
+    .copy ul { list-style: none; padding: 0; margin: 22px 0 0; display: grid; gap: 10px; font-size: 16px; }
+    .copy li { display: flex; gap: 10px; align-items: baseline; }
+    .copy li::before { content: "✓"; color: var(--accent); font-weight: 700; }
+
+    /* Shortcuts */
+    .keys { display: grid; grid-template-columns: repeat(2, 1fr); gap: 0 48px; max-width: 860px; margin: 0 auto; }
+    @media (max-width: 700px) { .keys { grid-template-columns: 1fr; } }
+    .key-row { display: flex; justify-content: space-between; align-items: center; gap: 16px; padding: 14px 0; border-bottom: 1px solid var(--line); font-size: 16px; }
+    kbd {
+      font-family: inherit; font-size: 13px; font-weight: 600;
+      min-width: 28px; display: inline-block; text-align: center;
+      padding: 4px 8px; margin-left: 4px; border-radius: 7px;
+      background: var(--kbd-bg); border: 1px solid var(--kbd-line); border-bottom-width: 2px;
+    }
+
+    /* Final CTA */
+    .cta-final { text-align: center; }
+    .cta-final img { width: 112px; height: 112px; margin: 0 auto 26px; filter: drop-shadow(0 14px 24px rgba(70, 60, 200, .25)); }
+
+    footer { border-top: 1px solid var(--line); padding: 32px 0 48px; color: var(--muted); font-size: 14px; }
+    footer .wrap { display: flex; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+    footer a:hover { color: var(--text); }
+    footer nav { all: unset; display: flex; gap: 22px; }
+
+    @media (prefers-reduced-motion: no-preference) {
+      .js .reveal { opacity: 0; transform: translateY(16px); transition: opacity .7s ease, transform .7s ease; }
+      .js .reveal.in { opacity: 1; transform: none; }
+    }
+  </style>
+</head>
+<body>
+  <nav>
+    <div class="wrap">
+      <a class="brand" href="#"><img src="assets/icon.png" alt="">Shot</a>
+      <div class="links">
+        <a class="hide-sm" href="#features">Features</a>
+        <a class="hide-sm" href="#shortcuts">Shortcuts</a>
+        <a class="hide-sm" href="https://github.com/eiskrenkov/shot">GitHub</a>
+        <a class="btn btn-primary btn-sm" href="https://github.com/eiskrenkov/shot/releases/latest">Download</a>
+      </div>
+    </div>
+  </nav>
+
+  <header class="hero">
+    <div class="wrap">
+      <picture>
+        <source media="(prefers-color-scheme: dark)" srcset="assets/icon-dark.png">
+        <img class="hero-icon" src="assets/icon.png" alt="Shot app icon" width="152" height="152">
+      </picture>
+      <h1>Your screenshots,<br><span class="grad">beautifully organized.</span></h1>
+      <p class="lede">Shot turns the endless pile of “Screenshot at 16.42.07” files into a timeline you can browse, group and search, all in a fast, native Mac app.</p>
+      <div class="ctas">
+        <a class="btn btn-primary" href="https://github.com/eiskrenkov/shot/releases/latest">
+          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M16.36 12.78c-.02-2.3 1.88-3.4 1.96-3.46-1.07-1.56-2.73-1.78-3.32-1.8-1.41-.14-2.76.83-3.48.83-.72 0-1.82-.81-3-.79-1.54.02-2.96.9-3.76 2.27-1.6 2.78-.41 6.9 1.15 9.16.76 1.1 1.67 2.34 2.86 2.3 1.15-.05 1.58-.74 2.97-.74 1.38 0 1.77.74 2.98.72 1.23-.02 2.01-1.12 2.76-2.23.87-1.28 1.23-2.51 1.25-2.58-.03-.01-2.4-.92-2.42-3.65zM14.08 6.02c.63-.77 1.06-1.83.94-2.89-.91.04-2.01.61-2.67 1.37-.58.67-1.1 1.75-.96 2.79 1.02.08 2.05-.52 2.69-1.27z"/></svg>
+          Download for Mac
+        </a>
+        <a class="btn btn-secondary" href="https://github.com/eiskrenkov/shot">
+          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 .5C5.65.5.5 5.65.5 12a11.5 11.5 0 0 0 7.86 10.92c.58.1.79-.25.79-.56v-2c-3.2.7-3.87-1.36-3.87-1.36-.52-1.33-1.28-1.69-1.28-1.69-1.05-.71.08-.7.08-.7 1.16.08 1.77 1.19 1.77 1.19 1.03 1.77 2.7 1.26 3.36.96.1-.75.4-1.26.73-1.55-2.55-.29-5.24-1.28-5.24-5.68 0-1.26.45-2.28 1.19-3.09-.12-.29-.52-1.46.11-3.05 0 0 .97-.31 3.17 1.18a11 11 0 0 1 5.78 0c2.2-1.49 3.17-1.18 3.17-1.18.63 1.59.23 2.76.11 3.05.74.81 1.19 1.83 1.19 3.09 0 4.41-2.69 5.38-5.26 5.67.41.36.78 1.06.78 2.14v3.17c0 .31.21.67.8.56A11.5 11.5 0 0 0 23.5 12C23.5 5.65 18.35.5 12 .5z"/></svg>
+          View on GitHub
+        </a>
+      </div>
+      <p class="fine">Free and open source · macOS 14 Sonoma or later · Apple silicon &amp; Intel</p>
+
+      <div class="hero-shot reveal">
+        <picture>
+          <source media="(prefers-color-scheme: dark)" srcset="assets/screenshots/dark-landing.png">
+          <img src="assets/screenshots/light-overview.png" alt="Shot's main window: a sidebar timeline of screenshots grouped by day, with a large preview of the selected screenshot" width="1800" height="1205">
+        </picture>
+      </div>
+    </div>
+  </header>
+
+  <section id="features">
+    <div class="wrap">
+      <div class="section-head reveal">
+        <div class="eyebrow">Features</div>
+        <h2>Everything you capture, right where you left it.</h2>
+        <p>No import, no library, no database. Shot works directly on your screenshots folder, so nothing is ever locked in.</p>
+      </div>
+      <div class="features">
+        <div class="feature reveal" style="--c:#4f8fff">
+          <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8V6a2 2 0 0 1 2-2h2M16 4h2a2 2 0 0 1 2 2v2M20 16v2a2 2 0 0 1-2 2h-2M8 20H6a2 2 0 0 1-2-2v-2"/><circle cx="12" cy="12" r="3"/></svg></div>
+          <h3>Zero setup</h3>
+          <p>Shot finds the folder macOS saves screenshots to and watches it. New captures appear the moment you take them.</p>
+        </div>
+        <div class="feature reveal" style="--c:#7b3cf0">
+          <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 2v4M16 2v4"/></svg></div>
+          <h3>A real timeline</h3>
+          <p>Browse by day, week or month: Today, Yesterday, last Thursday. Sort by date, name or size.</p>
+        </div>
+        <div class="feature reveal" style="--c:#f5a524">
+          <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg></div>
+          <h3>Groups are just folders</h3>
+          <p>Select a few screenshots and press ⌘G. Shot moves them into a subfolder, which Finder sees too.</p>
+        </div>
+        <div class="feature reveal" style="--c:#ff375f">
+          <div class="ic"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 21s-7.5-4.6-9.6-9.2C.9 8.4 3.1 4.5 6.9 4.5c2.1 0 3.6 1.1 5.1 2.9 1.5-1.8 3-2.9 5.1-2.9 3.8 0 6 3.9 4.5 7.3C19.5 16.4 12 21 12 21z"/></svg></div>
+          <h3>Favorites</h3>
+          <p>Heart the screenshots that matter with a single key, then see only those with ⌘2.</p>
+        </div>
+        <div class="feature reveal" style="--c:#30b0c7">
+          <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="15" height="14" rx="2"/><path d="m17 10 5-3v10l-5-3z"/></svg></div>
+          <h3>Recordings, too</h3>
+          <p>Screen recordings play inline next to your screenshots. Filter to show just one kind.</p>
+        </div>
+        <div class="feature reveal" style="--c:#34c759">
+          <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 4 6v6c0 5 3.4 8.3 8 9 4.6-.7 8-4 8-9V6z"/><path d="m9 12 2 2 4-4"/></svg></div>
+          <h3>Native and private</h3>
+          <p>Built with AppKit for speed. No account, no network access, no tracking. Your screenshots never leave your Mac.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="alt">
+    <div class="wrap">
+      <div class="split reveal">
+        <div class="copy">
+          <div class="eyebrow">Groups</div>
+          <h2>Keep projects together.</h2>
+          <p>Gather the screenshots for a redesign, a bug report or a trip into a group. Expand it in the sidebar, or select it to see everything at a glance.</p>
+          <ul>
+            <li>Group with ⌘G, ungroup with ⇧⌘G</li>
+            <li>Rename groups and keep your favorites</li>
+            <li>Drag a whole group into Mail, Slack or Finder</li>
+          </ul>
+        </div>
+        <img src="assets/screenshots/light-group.png" alt="A group of onboarding screenshots expanded in the sidebar and shown as a grid" loading="lazy" width="1800" height="1205">
+      </div>
+
+      <div class="split rev reveal">
+        <div class="copy">
+          <div class="eyebrow">Find anything</div>
+          <h2>The one you need, in seconds.</h2>
+          <p>Filter to your favorites, search by name, and press Space for Quick Look. When you find it, copy the image, drag it into any app or share it.</p>
+          <ul>
+            <li>Instant search with ⌘F</li>
+            <li>Quick Look on Space</li>
+            <li>Copy the image itself with ⌘C</li>
+          </ul>
+        </div>
+        <img src="assets/screenshots/dark-favorites.png" alt="Shot in dark mode, showing only favorite screenshots" loading="lazy" width="1800" height="1205">
+      </div>
+    </div>
+  </section>
+
+  <section id="shortcuts">
+    <div class="wrap">
+      <div class="section-head reveal">
+        <div class="eyebrow">Keyboard first</div>
+        <h2>Made for the keyboard.</h2>
+        <p>Every action has a shortcut that works the way you expect on a Mac.</p>
+      </div>
+      <div class="keys reveal">
+        <div class="key-row"><span>Quick Look</span><span><kbd>Space</kbd></span></div>
+        <div class="key-row"><span>Add to Favorites</span><span><kbd>.</kbd></span></div>
+        <div class="key-row"><span>Group selection</span><span><kbd>⌘</kbd><kbd>G</kbd></span></div>
+        <div class="key-row"><span>Ungroup</span><span><kbd>⇧</kbd><kbd>⌘</kbd><kbd>G</kbd></span></div>
+        <div class="key-row"><span>Copy image</span><span><kbd>⌘</kbd><kbd>C</kbd></span></div>
+        <div class="key-row"><span>Search</span><span><kbd>⌘</kbd><kbd>F</kbd></span></div>
+        <div class="key-row"><span>All items / Favorites</span><span><kbd>⌘</kbd><kbd>1</kbd> <kbd>⌘</kbd><kbd>2</kbd></span></div>
+        <div class="key-row"><span>Show in Finder</span><span><kbd>⇧</kbd><kbd>⌘</kbd><kbd>R</kbd></span></div>
+        <div class="key-row"><span>Open</span><span><kbd>⌘</kbd><kbd>O</kbd></span></div>
+        <div class="key-row"><span>Move to Trash</span><span><kbd>⌘</kbd><kbd>⌫</kbd></span></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="alt cta-final">
+    <div class="wrap reveal">
+      <picture>
+        <source media="(prefers-color-scheme: dark)" srcset="assets/icon-dark.png">
+        <img src="assets/icon.png" alt="" width="112" height="112">
+      </picture>
+      <h2>Give your screenshots a home.</h2>
+      <p class="lede">Free, open source, and less than 3 MB.</p>
+      <div class="ctas">
+        <a class="btn btn-primary" href="https://github.com/eiskrenkov/shot/releases/latest">Download Shot</a>
+        <a class="btn btn-secondary" href="https://github.com/eiskrenkov/shot/blob/master/CONTRIBUTING.md">Contribute</a>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    <div class="wrap">
+      <span>© 2026 Egor Iskrenkov · MIT License</span>
+      <nav>
+        <a href="https://github.com/eiskrenkov/shot">Source</a>
+        <a href="https://github.com/eiskrenkov/shot/releases">Releases</a>
+        <a href="https://github.com/eiskrenkov/shot/issues">Issues</a>
+      </nav>
+    </div>
+  </footer>
+
+  <script>
+    const io = new IntersectionObserver((entries) => {
+      for (const e of entries) if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target); }
+    }, { rootMargin: '0px 0px -10% 0px' });
+    document.querySelectorAll('.reveal').forEach((el) => io.observe(el));
+  </script>
+</body>
+</html>

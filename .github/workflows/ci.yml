@@ -1,0 +1,44 @@
+name: CI
+
+on:
+  push:
+    branches: [master]
+    paths-ignore: ["docs/**", "**.md"]
+  pull_request:
+    paths-ignore: ["docs/**", "**.md"]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build
+    runs-on: macos-26
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Show Xcode version
+        run: xcodebuild -version
+
+      - name: Check that Shot.xcodeproj matches project.yml
+        run: |
+          brew install xcodegen
+          xcodegen generate
+          if ! git diff --quiet -- Shot.xcodeproj; then
+            echo "::error::Shot.xcodeproj is out of date. Run 'xcodegen generate' and commit the result."
+            git diff --stat -- Shot.xcodeproj
+            exit 1
+          fi
+
+      - name: Build
+        run: |
+          xcodebuild build \
+            -project Shot.xcodeproj \
+            -scheme Shot \
+            -configuration Release \
+            -destination 'generic/platform=macOS' \
+            -derivedDataPath build/DerivedData \
+            CODE_SIGN_IDENTITY=- \
+            > "$RUNNER_TEMP/xcodebuild.log" 2>&1 || { tail -100 "$RUNNER_TEMP/xcodebuild.log"; exit 1; }
+          grep -E '(error|warning):|BUILD SUCCEEDED' "$RUNNER_TEMP/xcodebuild.log" || true
